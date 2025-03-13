@@ -1,0 +1,21 @@
+1. brew --version --> validate if home brew is installed
+https://brew.sh/ --> To install brew
+
+2. brew install grafana
+nehagupta@Nehas-MacBook-Air ~ % brew install grafana
+==> Downloading https://ghcr.io/v2/homebrew/core/grafana/manifests/11.5.2
+##################################################################################################################################################################################################### 100.0%
+==> Fetching grafana
+==> Downloading https://ghcr.io/v2/homebrew/core/grafana/blobs/sha256:1ad0843e1252680eeb18c8e44679292395f566ac4305756bfbaee70a34fa1fd8
+##################################################################################################################################################################################################### 100.0%
+==> Pouring grafana--11.5.2.arm64_sequoia.bottle.tar.gz
+==> Caveats
+To start grafana now and restart at login:
+  brew services start grafana
+Or, if you don't want/need a background service you can just run:
+  /opt/homebrew/opt/grafana/bin/grafana server --config /opt/homebrew/etc/grafana/grafana.ini --homepath /opt/homebrew/opt/grafana/share/grafana --packaging\=brew cfg:default.paths.logs\=/opt/homebrew/var/log/grafana cfg:default.paths.data\=/opt/homebrew/var/lib/grafana cfg:default.paths.plugins\=/opt/homebrew/var/lib/grafana/plugins
+==> Summary
+🍺  /opt/homebrew/Cellar/grafana/11.5.2: 8,496 files, 483.5MB
+==> Running `brew cleanup grafana`...
+Disable this behaviour by setting HOMEBREW_NO_INSTALL_CLEANUP.
+Hide these hints with HOMEBREW_NO_ENV_HINTS (see `man brew`).
