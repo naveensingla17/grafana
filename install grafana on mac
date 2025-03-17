@@ -19,3 +19,8 @@ Or, if you don't want/need a background service you can just run:
 ==> Running `brew cleanup grafana`...
 Disable this behaviour by setting HOMEBREW_NO_INSTALL_CLEANUP.
 Hide these hints with HOMEBREW_NO_ENV_HINTS (see `man brew`).
+
+3. start service
+brew services start grafana
+
+4. 
