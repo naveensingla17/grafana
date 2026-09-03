@@ -1,0 +1,6 @@
+## no loki logs
+sudo usermod -aG adm alloy
+
+logger -t test "Testing Loki log ingestion"
+
+re-execute {job="varlogs"}
