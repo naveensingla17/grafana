@@ -1,0 +1,330 @@
+# Grafana Assistant Mastery Plan — 2 Days / 24 Hours
+**For:** Senior IT Observability Engineer (18+ yrs, 2+ yrs Grafana OSS) prepping for interview
+**Stack:** Grafana Cloud Free Tier (required for Assistant) + AWS Free Tier (EC2) as the real telemetry source
+
+---
+
+## Before You Start: Setup Notes (30–45 min, do this the night before if possible)
+
+Grafana Assistant is a **Grafana Cloud** capability — it isn't bundled with self-managed OSS Grafana by default, though a self-managed instance can one-click connect to a Cloud backend to use it. So step 1 is a Grafana Cloud **free** account, not just your existing OSS install.
+
+1. **Grafana Cloud free account** → grafana.com/auth/sign-up. Free tier includes hosted Prometheus (Mimir), Loki, Tempo, and Assistant access.
+2. **Try before you build**: Grafana Labs runs a public **Grafana Play sandbox** with sample data specifically so you can explore Assistant workflows before connecting your own stack — use this in Hour 1 as a zero-risk orientation lab.
+3. **AWS Free Tier EC2 instance** (t2.micro/t3.micro, Amazon Linux or Ubuntu) — this is your real telemetry generator for the whole 2 days.
+4. On the EC2 box, install **Grafana Alloy** (the modern unified agent — replaces separate Prometheus node_exporter + Promtail configs) and point it at your Grafana Cloud stack's Prometheus/Loki remote-write endpoints (found under Grafana Cloud → *My Account* → connection details).
+5. Install a small demo workload on EC2 you can break on purpose Day 2: e.g. a simple Python/Flask or Node app instrumented with a `/metrics` endpoint, or just use `node_exporter` + a synthetic log generator script (a bash loop writing fake error/info logs to a file that Alloy tails). If time is tight, `avalanche` (Prometheus metric load generator) + a simple log-spam script is faster than building a real app.
+
+**Why this matters for the interview:** you'll be able to say "I stood up real telemetry on AWS and used Assistant against it," not "I clicked around a demo." That's the differentiator.
+
+---
+
+# DAY 1 — Fundamentals & Prompting Grafana Assistant (12 hrs)
+
+## Hour-by-Hour Agenda
+
+| Time | Block |
+|---|---|
+| H1 | Setup verification + Assistant orientation on Grafana Play |
+| H2 | Core workflows deep dive (Investigations, Dashboards, Query, Navigation, Knowledge) |
+| H3–4 | Hands-on: AWS metrics pipeline live, Assistant builds first dashboard |
+| H5 | PromQL generation & refinement exercises |
+| H6 | Break / buffer / notes consolidation |
+| H7–8 | Loki logs pipeline live, Assistant-driven log panels |
+| H9 | SQL data source query assistance |
+| H10–11 | Dynamic dashboard build: variables, templating, drill-downs via Assistant |
+| H12 | Troubleshooting exercise + Day 1 checklist review |
+
+---
+
+### Hour 1 — Orientation on Grafana Play (no setup risk)
+
+**Task:** Open Grafana Play, launch Assistant, and map its five core workflows against what you already know from OSS Grafana:
+- **Assistant Investigations** — ask about performance, correlate metrics/logs/traces/profiles/SQL data
+- **Manage dashboards** — create dashboards, refine panels/layouts/variables
+- **Query assistance** — PromQL, LogQL, TraceQL, SQL, k6 — build, validate, and get optimization tips
+- **Navigation & discovery** — find dashboards/data sources without leaving the chat
+- **Knowledge & best practices** — ask Grafana/observability conceptual questions in context
+
+**Example prompts to run on Play sandbox:**
+```
+"Show me CPU usage across all hosts in the last hour"
+"What data sources are connected to this instance?"
+"Create a dashboard for database performance"
+"Explain what this panel's query is doing"
+```
+
+**Note while doing this:** watch *how* Assistant asks clarifying questions when your prompt is ambiguous — that pattern is exactly what you'll exploit for accurate output later.
+
+---
+
+### Hour 2 — Core Concepts You Need Alongside Assistant
+
+Because Assistant is only as good as your ability to *verify* its output, spend this hour refreshing (not learning from scratch, given your background) the exact primitives it will be generating:
+- PromQL: rate/irate, histogram_quantile, label matching, aggregation operators
+- LogQL: label filters, line filters, parsing (`| json`, `| logfmt`), metric queries from logs
+- Grafana dashboard JSON model basics — panels, targets, variables, transformations
+- RBAC note: Assistant conversations respect your Grafana RBAC — it won't show data your role can't see. Worth knowing for an interview question on AI + security.
+
+**Checklist for yourself:** can you predict, before Assistant answers, roughly what PromQL/LogQL it *should* produce for a given ask? If not, pause and review that concept before moving on — this is the skill interviewers will actually probe.
+
+---
+
+### Hours 3–4 — Hands-On: Real AWS Metrics → Assistant Builds a Dashboard
+
+**Setup check:** confirm Alloy is shipping `node_exporter`/EC2 host metrics into your Grafana Cloud Mimir instance (Explore → run `up` to confirm targets are live).
+
+**Exercise 1.1 — Natural language dashboard creation**
+```
+Prompt: "Create a dashboard showing CPU, memory, disk, and network usage 
+for my EC2 host over the last 6 hours"
+```
+Verify: check the generated PromQL for each panel manually. Does it use `node_cpu_seconds_total` with correct `irate`/`rate` and mode filtering? Fix anything wrong and note *why* it was wrong — this is your prompting-precision lesson.
+
+**Exercise 1.2 — Iterative refinement**
+```
+Prompt: "Add a panel showing the top 5 processes by memory usage"
+Prompt: "Change the CPU panel to show percentage instead of raw seconds"
+Prompt: "Group these panels into a row called 'Host Health'"
+```
+
+**Exercise 1.3 — Ask it to explain itself**
+```
+Prompt: "Explain the PromQL query behind the CPU panel in plain English"
+```
+This is a direct simulation of an interview ask: "how do you validate AI-generated queries?"
+
+---
+
+### Hour 5 — PromQL Generation & Refinement Drills
+
+Run these as a rapid-fire set, each time checking the query yourself before trusting the panel:
+```
+"Show me the 95th percentile request latency if I had a histogram metric called http_request_duration_seconds"
+"Write a PromQL query for error rate as a percentage of total requests"
+"Alert me if CPU usage is above 80% for 5 minutes — what would that PromQL/alert rule look like?"
+"Optimize this query for lower cardinality: <paste a rate() query with many labels>"
+```
+
+**Checklist:** you should now be able to articulate, unprompted, when Assistant's first draft query is *functionally correct but operationally bad* (e.g., unbounded cardinality, missing rate interval, wrong aggregation) — that judgment is the actual senior-engineer value-add over the AI.
+
+---
+
+### Hours 6 — Buffer / Consolidation
+
+Use this hour to write your own **prompt cheat-sheet** (you'll want this for Day 2 and the interview) capturing: which phrasings got clean output vs. which needed follow-up correction, and why.
+
+---
+
+### Hours 7–8 — Loki Logs Pipeline + Assistant Log Panels
+
+**Setup check:** Alloy tailing your synthetic log file → Loki. Confirm in Explore with a basic `{job="your-job"}` query.
+
+**Exercise 1.4 — Log panel generation**
+```
+Prompt: "Build a panel showing the rate of error logs per minute from job=<your job>"
+Prompt: "Create a LogQL query that extracts response_time from JSON logs and shows the average over time"
+Prompt: "Show me the most frequent log lines in the last hour, grouped by pattern"
+```
+
+**Exercise 1.5 — Correlate logs to the metrics dashboard**
+```
+Prompt: "Add this error rate log panel to the Host Health dashboard I made earlier"
+```
+This tests Assistant's cross-workflow behavior (query assistance + dashboard management in one ask) — good talking point for "how does AI handle multi-step observability tasks."
+
+---
+
+### Hour 9 — SQL Query Assistance
+
+If you have a free-tier RDS instance or even a local SQLite/MySQL data source configured in Grafana, run:
+```
+"Write a SQL query to get the count of records grouped by status per day for the last 7 days"
+"Optimize this SQL query for a table with 10 million rows: <paste a query>"
+```
+If no SQL source is set up, use Assistant purely as a **knowledge** workflow here — ask it to explain how it would approach SQL query generation differently from PromQL/LogQL (this is a fair interview question: "how does the assistant reason differently across query languages?").
+
+---
+
+### Hours 10–11 — Dynamic Dashboard Build (Variables, Templating, Drill-Down)
+
+**Exercise 1.6**
+```
+Prompt: "Add a dashboard variable for host name so I can filter all panels by host"
+Prompt: "Make the time range panel-aware so drilling into a spike updates all panels"
+Prompt: "Add a drill-down link from the CPU panel to the logs panel filtered by the same time window"
+```
+Manually verify the variable syntax (`$host`, `label_values()`) and templating logic Assistant wrote — this is the exact skill (dynamic, reusable dashboards) that separates "clicked a wizard" from "engineered a dashboard."
+
+---
+
+### Hour 12 — Troubleshooting Exercise + Day 1 Checklist
+
+**Exercise 1.7 (mini troubleshooting)**
+Stop the Alloy service briefly, then ask:
+```
+"Why is my CPU dashboard showing no data for the last 2 minutes?"
+```
+Watch how Assistant investigates (does it check target health, staleness, or just guess?). Restart Alloy and confirm resolution.
+
+### ✅ Day 1 Checklist — you should now be able to:
+- [ ] Explain Assistant's 5 core workflows without notes
+- [ ] Generate a dashboard from natural language and manually validate every PromQL query it produced
+- [ ] Write/critique PromQL for rate, percentile, and alerting use cases
+- [ ] Generate and validate LogQL for filtering, parsing, and rate-of-error queries
+- [ ] Explain how RBAC constrains what Assistant can surface
+- [ ] Build a dashboard with variables/templating using Assistant assistance, and explain the templating syntax yourself
+- [ ] Diagnose a "no data" scenario using Assistant as a first-pass investigator, then confirm the real cause yourself
+- [ ] Have a written prompt cheat-sheet of phrasings that reliably produce clean output
+
+---
+
+# DAY 2 — Advanced Use Cases, Incident Response & Best Practices (12 hrs)
+
+## Hour-by-Hour Agenda
+
+| Time | Block |
+|---|---|
+| H1 | Recap Day 1 + intro to Skills/Automations/Investigations |
+| H2–3 | Deep log analysis exercises |
+| H4 | Prompting best-practices workshop |
+| H5–6 | Incident simulation: inject an error spike, RCA with Assistant |
+| H7 | Alert rule creation from investigation findings |
+| H8 | MCP / Slack / automation exploration |
+| H9–10 | Full mock-incident interview simulation |
+| H11 | Best-practices doc + Skills authoring |
+| H12 | Final review + interview cheat sheet |
+
+---
+
+### Hour 1 — Recap + What's New Today
+
+Quick refresh of Day 1 cheat-sheet, then orient on the concepts you'll use today:
+- **Assistant Investigations** — the workflow purpose-built for "why is X happening" style questions, correlating across metrics/logs/traces/SQL automatically
+- **Skills** (GA) — documents that give Assistant agents instructions/context about your team's workflows, runbooks, and even auto-remediation pipelines
+- **Automations** — scheduled summaries of activity on your instance
+- **Sift** — a related but distinct diagnostic feature that auto-surfaces likely incident causes; worth distinguishing from Assistant in an interview answer ("Sift auto-runs pattern checks during an incident; Assistant is the conversational layer you can direct")
+
+---
+
+### Hours 2–3 — Deep Log Analysis with Assistant
+
+**Exercise 2.1**
+```
+Prompt: "Analyze the logs from the last hour and summarize any anomalies or unusual patterns"
+Prompt: "Group these error logs by root cause pattern, not just by message text"
+Prompt: "What percentage of requests in these logs resulted in 5xx errors?"
+```
+
+**Exercise 2.2 — Cross-signal correlation**
+```
+Prompt: "Correlate the error log spike with any metric changes on the same host in the same time window"
+```
+This directly exercises the "Investigations" workflow's core promise — correlating metrics, logs, traces, profiles, and SQL data in one ask.
+
+---
+
+### Hour 4 — Prompting Best Practices Workshop
+
+Consolidate what you've learned into a repeatable framework. Key principles to internalize and be ready to state in an interview:
+
+1. **Be specific about scope** — time range, host/service/label, and metric name beat vague asks ("show errors" vs. "show 5xx rate for service=checkout in the last 30m").
+2. **State the desired output shape** — "as a table," "as a time series panel," "as a single stat with threshold coloring."
+3. **Iterate, don't restart** — refine ("now filter to only...", "change the aggregation to...") rather than re-prompting from scratch; Assistant retains conversational context.
+4. **Always ask for the underlying query** — never trust a panel you haven't seen the PromQL/LogQL/SQL for, especially before using it in an alert.
+5. **Use it for explanation, not just generation** — asking "why did you write it this way" surfaces reasoning you can sanity-check.
+6. **Give it constraints it can't infer** — cardinality limits, retention policies, naming conventions used by your team (this is what Skills documents are for in a real org).
+7. **Treat RBAC-aware answers as a security feature, not a limitation** — mention this explicitly if asked about AI + data governance.
+
+**Mini-exercise:** rewrite 3 of your "bad" Day 1 prompts using this framework and re-run them — confirm improved output quality.
+
+---
+
+### Hours 5–6 — Incident Simulation: Inject an Error Spike, Then RCA
+
+**Setup:** On your EC2 instance, deliberately break something:
+- Kill a dependent process/port your demo app relies on, or
+- Run a quick script that floods your log file with 5xx-style error lines and simultaneously spikes CPU (e.g., a `stress` command or a busy-loop script), or
+- Throttle a service to cause latency
+
+**Exercise 2.3 — RCA with Assistant**
+```
+Prompt: "There's a spike in error rate right now — investigate and tell me the likely root cause"
+Prompt: "Show me what changed in the last 15 minutes across metrics and logs on this host"
+Prompt: "Is this error spike correlated with the CPU spike, or are they independent?"
+```
+**Your job:** independently verify Assistant's conclusion using Explore before accepting it. Note any case where it's right for the wrong reason, or misses causality vs. correlation — this is exactly the critical-thinking narrative you want for an interview.
+
+---
+
+### Hour 7 — Alert Rule Creation from Findings
+
+```
+Prompt: "Based on this incident, create an alert rule that would have caught this 5 minutes earlier"
+Prompt: "What threshold and 'for' duration would avoid false positives but still catch this pattern?"
+```
+Manually review the generated alert rule YAML/UI config — check for sane `for` durations and no-data/error-state handling, which Assistant sometimes needs a nudge on.
+
+---
+
+### Hour 8 — MCP, Slack/Teams Integration, and Automations (Exploration)
+
+Even without fully wiring Slack, review (and if time allows, configure) how Assistant is accessible outside the Grafana UI — via Slack, Microsoft Teams, API/CLI, or MCP-compatible clients — and how a hosted MCP server lets external agents talk to Assistant/Grafana Cloud. Being able to speak to this multi-surface access model fluently is a strong interview differentiator, since most candidates only know the in-UI chat panel.
+
+```
+Prompt: "What would I need to configure to ask you questions from Slack instead of the Grafana UI?"
+```
+
+---
+
+### Hours 9–10 — Full Mock Incident (Interview Simulation)
+
+Treat this as a timed interview exercise. Reset your "incident" (or trigger a new one) and, narrating out loud as if an interviewer is watching:
+1. Detect the issue (dashboard or alert)
+2. Use Assistant Investigations to correlate signals
+3. State your hypothesis and how you'd verify it independently
+4. Use Assistant to draft the fix/alert/runbook update
+5. Summarize the incident in 3 sentences, as if writing a postmortem
+
+This end-to-end run-through is the single best use of time for interview prep — it forces integration of everything from both days under time pressure.
+
+---
+
+### Hour 11 — Best-Practices Document + Skills Authoring
+
+Write a short internal-style **Skills document** (even just in a text file) as if onboarding your team to Assistant:
+- Your naming conventions for metrics/labels
+- Standard alert thresholds
+- A short runbook for the incident type you simulated
+- Prompting do's and don'ts from your Day 1–2 experience
+
+This mirrors real Skills documents, which give Assistant agents instructions, context, and specialized knowledge about a team's workflows, and can be referenced directly if an interviewer asks how you'd roll this out to a team.
+
+---
+
+### Hour 12 — Final Review + Interview Cheat Sheet
+
+Consolidate everything into a one-page cheat sheet covering:
+- Assistant's 5 core workflows, in your own words
+- 3 strong example prompts per workflow
+- Your prompting best-practices list (from Hour 4)
+- The incident story from Hours 9–10, ready to tell as a narrative
+- One thoughtful critique of the tool (e.g., where it needed correction) — interviewers value honest limitations awareness over blind enthusiasm
+
+### ✅ Day 2 Checklist — you should now be able to:
+- [ ] Use Assistant to analyze logs and summarize anomalies without manually grepping first
+- [ ] Explain and apply the 7-point prompting best-practices framework
+- [ ] Run a full incident simulation: detect → investigate → correlate → hypothesize → verify → remediate
+- [ ] Independently verify (not blindly trust) an AI-generated root cause
+- [ ] Create an alert rule informed by an Assistant-assisted investigation
+- [ ] Describe how Assistant is accessible via Slack/Teams/API/MCP, and why that matters
+- [ ] Articulate the difference between Assistant and Sift
+- [ ] Have a written incident narrative and cheat sheet ready to present in an interview
+
+---
+
+## Quick Reference: Sources
+- Grafana Assistant get-started guide — grafana.com/docs/grafana-cloud/platform/grafana-assistant/get-started
+- Grafana Assistant product overview — grafana.com/docs/grafana-cloud/machine-learning/assistant
+- AI plugin for Grafana (query assistance detail) — grafana.com/grafana/plugins/grafana-assistant-app
+- Grafana Assistant product page (Slack/Teams/MCP/gcx CLI access) — grafana.com/products/cloud/ai-assistant
+- GrafanaCON 2026 announcements (Skills, Automations GA) — grafana.com/blog/grafanacon-2026-announcements
