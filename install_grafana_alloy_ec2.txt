@@ -1,0 +1,38 @@
+Amazon Linux / RHEL / CentOS
+1. Add the Grafana YUM repository
+
+sudo tee /etc/yum.repos.d/grafana.repo <<EOF
+[grafana]
+name=grafana
+baseurl=https://rpm.grafana.com
+repo_gpgcheck=1
+enabled=1
+gpgcheck=1
+gpgkey=https://rpm.grafana.com/gpg.key
+sslverify=1
+sslcacert=/etc/pki/tls/certs/ca-bundle.crt
+EOF
+
+2. Install Alloy
+
+sudo dnf install -y alloy    # Amazon Linux 2023 / RHEL 8+
+# OR
+sudo yum install -y alloy    # Amazon Linux 2 / RHEL 7
+
+
+Service Management & UI Access
+1. Start and enable Alloy
+
+sudo systemctl enable --now alloy
+
+2. Verify status
+
+sudo systemctl status alloy
+
+3. Configure pipelines & Expose UI (Optional)
+
+Configuration: Edit /etc/alloy/config.alloy to define your scraping targets and destinations (e.g., Prometheus, Loki, OpenTelemetry).   
+
+UI Port: By default, Alloy runs its local UI on port 12345 bound to 127.0.0.1.   
+
+Expose UI externally: If you need to access the UI from a browser via your instance's public IP, update /etc/default/alloy (Debian/Ubuntu) or /etc/sysconfig/alloy (RPM) by appending --server.http.listen-addr=0.0.0.0:12345 to CUSTOM_ARGS. Ensure inbound TCP port 12345 is allowed in your EC2 Security Group.

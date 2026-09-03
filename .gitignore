@@ -1,0 +1,5 @@
+# Never commit an Alloy config that contains real Grafana Cloud credentials.
+# Commit a redacted template (alloy.config) that reads secrets via sys.env(...).
+config.alloy
+*.local.config
+.env

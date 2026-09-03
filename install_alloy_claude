@@ -1,0 +1,55 @@
+Amazon Linux 2023 / RHEL / Fedora:
+
+wget -q -O gpg.key https://rpm.grafana.com/gpg.key
+sudo rpm --import gpg.key
+echo -e '[grafana]\nname=grafana\nbaseurl=https://rpm.grafana.com\nrepo_gpgcheck=1\nenabled=1\ngpgcheck=1\ngpgkey=https://rpm.grafana.com/gpg.key\nsslverify=1\nsslcacert=/etc/pki/tls/certs/ca-bundle.crt' | sudo tee /etc/yum.repos.d/grafana.repo
+
+
+3. Install Alloy
+Amazon Linux/RHEL/Fedora:
+
+sudo dnf install alloy
+
+4. Get your Grafana Cloud connection details (do this before configuring)
+
+In Grafana Cloud → your stack's My Account page → find the Prometheus and Loki "Details" panels. Each gives you:
+
+A remote-write URL
+A numeric username/instance ID
+An API token you generate right there (scope it for metrics:write and logs:write)
+
+##### Prometheus
+Remote Write URL:  https://prometheus-prod-37-prod-ap-southeast-1.grafana.net/api/prom/push
+Username / instance ID: <PROM_INSTANCE_ID>
+Password: <GRAFANA_CLOUD_PROM_TOKEN>   # glc_... token, do NOT commit the real value
+
+##### Loki
+Name: grafanacloud-rubymirror735-logs
+URL: https://logs-prod-020.grafana.net
+User: <LOKI_INSTANCE_ID>
+Password: <GRAFANA_CLOUD_LOKI_TOKEN>   # glc_... token, do NOT commit the real value
+
+Keep those four values handy — you'll paste them into Alloy's config next.
+
+5. Configure Alloy
+
+The default config file lives at /etc/alloy/config.alloy. Edit it:
+
+sudo nano /etc/alloy/config.alloy
+alloy fmt /etc/alloy/config.alloy
+
+6. Start and enable it
+
+sudo systemctl start alloy
+systemctl restart alloy
+sudo systemctl enable alloy.service   # start on boot
+sudo systemctl status alloy           # verify it's running
+sudo journalctl -u alloy -f           # tail logs / debug config errors
+journalctl -e -u alloy
+
+7. Verify in Grafana Cloud
+
+In your Grafana Cloud instance → Explore → select the Prometheus data source → run:
+
+up
+
